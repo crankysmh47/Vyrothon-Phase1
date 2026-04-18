@@ -10,6 +10,7 @@ from typing import List
 
 from deepface import DeepFace
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 # Internal module imports
 from .database import supabase
@@ -21,6 +22,15 @@ from .models import (
 )
 
 app = FastAPI(title="GRABPIC: Intelligent Identity & Retrieval Engine")
+
+# Configure CORS for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, restrict this to the frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def get_face_embeddings(image_bytes: bytes) -> List[dict]:
