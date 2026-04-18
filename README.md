@@ -59,6 +59,30 @@ uvicorn grabpic.main:app --reload
 
 ## API Documentation
 
-- `POST /ingest`: Processes an image to detect faces and register them in the persistent storage.
-- `POST /auth`: Performs biometric authentication via selfie matching.
 - `GET /images/{grab_id}`: Retrieves all storage URLs associated with a specific biometric identity.
+
+## Manual Verification (CURL Examples)
+
+Execute these commands from the root directory to verify endpoint functionality.
+
+### 1. Image Ingestion
+```powershell
+curl -X POST "http://localhost:8000/ingest" `
+     -H "accept: application/json" `
+     -H "Content-Type: multipart/form-data" `
+     -F "file=@grabpic/test_images/ben.jpeg"
+```
+
+### 2. Biometric Authentication
+```powershell
+curl -X POST "http://localhost:8000/auth" `
+     -H "accept: application/json" `
+     -H "Content-Type: multipart/form-data" `
+     -F "file=@grabpic/test_images/ben.jpeg"
+```
+
+### 3. Data Retrieval
+```powershell
+curl -X GET "http://localhost:8000/images/{grab_id}" `
+     -H "accept: application/json"
+```
