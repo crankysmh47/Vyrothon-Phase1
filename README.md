@@ -1,80 +1,64 @@
-# GRABPIC: Intelligent Identity & Retrieval Engine
+# GRABPIC: Intelligent Identity and Retrieval Engine
 
-GRABPIC is a high-performance face identification and image retrieval system built with FastAPI and Supabase. It leverages the power of `DeepFace` for biometric feature extraction and `pgvector` with HNSW indexing for near-instant similarity searches across large datasets.
+GRABPIC is a high-performance biometric identification and image retrieval system. It utilizes the FaceNet model for facial feature extraction and leveraging the pgvector extension within Supabase for efficient vector similarity searches using HNSW indexing.
 
-## 🏗 Architecture
+## Architecture and Engineering Decisions
 
-```ascii
-      +-------------------+       +-----------------------+
-      |   User Client     |       |   Machine Learning    |
-      | (Mobile/Web/CLI)  |       |    (DeepFace/FaceNet) |
-      +---------+---------+       +-----------+-----------+
-                |                             ^
-                | HTTP API                    | Local Inference
-                v                             v
-      +---------+---------+       +-----------+-----------+
-      |     FastAPI       +------>|   Image Processing    |
-      |   (Backend)       |       |       (OpenCV)        |
-      +---------+---------+       +-----------------------+
-                |
-                | PostgreSQL / pgvector
-                v
-      +---------+---------+
-      |    Supabase       |
-      | (pgvector + HNSW) |
-      +-------------------+
-```
+### Postgres RPC for Vector Mathematics
+The system utilizes a PostgreSQL Stored Procedure (`match_face` RPC) to execute cosine similarity calculations directly within the database layer. This architectural choice minimizes network latency by avoiding the transfer of large vector payloads and leverages the native binary execution speed of the PostgreSQL engine.
 
-## 🚀 Setup SOP (Standard Operating Procedure)
+### Event-Loop Concurrency Safety
+The FastAPI endpoints are implemented using standard `def` instead of `async def`. Given that the DeepFace inference engine and the Supabase-py client are synchronous and blocking operations, executing them within an asynchronous context would stall the ASGI event loop. By utilizing standard definitions, FastAPI automatically delegates these tasks to an external thread pool, ensuring the server remains responsive to concurrent requests.
 
-### 1. Environment Preparation
+### Ingestion Deduplication
+The `/ingest` endpoint executes a biometric identity check against existing records prior to insertion. If a detected face matches an existing identity within the defined similarity threshold (0.5), the system reuses the existing `grab_id`. This implementation ensures that multiple photographs containing the same individual are unified under a single biometric key.
+
+## Technical Specifications
+
+- **Backend Framework**: FastAPI
+- **Machine Learning**: DeepFace (FaceNet)
+- **Database**: Supabase (PostgreSQL + pgvector)
+- **Search Algorithm**: HNSW (Hierarchical Navigable Small World)
+- **Vector Dimension**: 128
+
+## Initial Setup SOP
+
+### 1. Environment Configuration
+Establish a Python virtual environment and install the necessary dependencies:
+
 ```powershell
-# Create Virtual Environment
 python -m venv venv
-
-# Activate Environment (Windows PowerShell)
 .\venv\Scripts\Activate.ps1
-
-# Install Dependencies
 pip install -r requirements.txt
 ```
 
 ### 2. Database Initialization
-Run the following SQL in your Supabase SQL Editor:
-1. `CREATE EXTENSION IF NOT EXISTS vector;`
-2. Create tables (`images`, `faces`, `image_faces`) as specified in the execution plan.
-3. Create the `match_face` RPC function.
+Execute the `setup.sql` script within the Supabase SQL Editor to initialize the necessary extensions, tables, and RPC functions.
 
 ### 3. Environment Variables
-Create a `.env` file in the root directory:
+Configure a `.env` file in the root directory with the following credentials:
+
 ```env
 SUPABASE_URL=your_project_url
 SUPABASE_KEY=your_service_role_key
 ```
 
-### 4. Running the Application
+### 4. Pre-Flight: Download Model Weights
+Execute the following command to pre-cache the FaceNet weights and prevent initialization latency during the first API request:
+
+```powershell
+python -c "from deepface import DeepFace; DeepFace.represent('grabpic/test_images/ben.jpeg', model_name='Facenet', enforce_detection=False)"
+```
+
+### 5. Application Execution
+Start the server using Uvicorn:
+
 ```powershell
 uvicorn grabpic.main:app --reload
 ```
 
-## ⚡ Why HNSW? (Rubric: Problem Judgement & Analysis)
+## API Documentation
 
-In a traditional database, finding the nearest face embedding would require a brute-force `O(n)` linear scan, calculating the distance for every single row. For a dataset of 50,000+ faces, this latency would be unacceptable for real-time authentication.
-
-**GRABPIC implements HNSW (Hierarchical Navigable Small World) indexing**:
-- **Logarithmic Complexity**: Reduces search time to `O(log n)`.
-- **Multi-layer Graph**: Traverses clusters to find the nearest neighbor instantly.
-- **Configurable Threshold**: Currently set to `0.5` for a balance between accuracy and tolerance for variation (angle/lighting).
-
-## 🖼️ Image Storage & Retrieval Logic
-
-To satisfy the requirement for fetching user images without requiring a complex cloud bucket setup during the hackathon:
-- **Simulated Storage**: The `/ingest` endpoint generates a deterministic storage URL for every image.
-- **Database Mapping**: Every detected face is linked to these URLs in the `image_faces` table.
-- **Retrieval**: The `/images/{grab_id}` endpoint performs a relational join to return all URLs associated with a specific person's biometric identity.
-
-## 📡 API Reference
-
-- `POST /ingest`: Upload an image to detect faces and store embeddings.
-- `POST /auth`: Perform biometric authentication via selfie.
-- `GET /images/{grab_id}`: Retrieve all stored URLs for a specific user ID.
+- `POST /ingest`: Processes an image to detect faces and register them in the persistent storage.
+- `POST /auth`: Performs biometric authentication via selfie matching.
+- `GET /images/{grab_id}`: Retrieves all storage URLs associated with a specific biometric identity.
