@@ -57,9 +57,49 @@ Start the server using Uvicorn:
 uvicorn grabpic.main:app --reload
 ```
 
-## API Documentation
+## API Documentation and Exploration
 
-- `GET /images/{grab_id}`: Retrieves all storage URLs associated with a specific biometric identity.
+### Integrated Swagger UI
+FastAPI provides an interactive OpenAPI documentation interface for real-time testing and exploration:
+- **Swagger URL**: `http://localhost:8000/docs`
+- **Alternative Redoc**: `http://localhost:8000/redoc`
+
+### Core Endpoints
+- `POST /ingest`: Processes raw image data to extract biometric features and map them to identities.
+- `POST /auth`: Executes a one-to-many similarity search to identify the user from a provided facial token.
+- `GET /images/{grab_id}`: Retrieves the collection of image storage URLs associated with a specific biometric key.
+
+## Automated Quality Assurance
+
+The system includes a suite of automated tests to ensure endpoint stability and error-handling integrity.
+
+### Running Tests
+```powershell
+pytest grabpic/tests/test_main.py
+```
+
+## Relational Persistence Schema
+
+The following diagram illustrates the many-to-many relationship between photographic data and discovered biometric identities:
+
+```mermaid
+erDiagram
+    IMAGES ||--o{ IMAGE_FACES : contains
+    FACES ||--o{ IMAGE_FACES : appears_in
+    IMAGES {
+        uuid image_id PK
+        text storage_url
+        timestamptz created_at
+    }
+    FACES {
+        uuid grab_id PK
+        vector embedding
+    }
+    IMAGE_FACES {
+        uuid image_id FK
+        uuid grab_id FK
+    }
+```
 
 ## Manual Verification (CURL Examples)
 
