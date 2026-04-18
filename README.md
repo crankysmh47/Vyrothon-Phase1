@@ -63,8 +63,15 @@ In a traditional database, finding the nearest face embedding would require a br
 
 **GRABPIC implements HNSW (Hierarchical Navigable Small World) indexing**:
 - **Logarithmic Complexity**: Reduces search time to `O(log n)`.
-- **Multi-layer Graph**: Traverses from coarse to fine clusters to find the nearest neighbor instantly.
-- **Scalability**: Ensures that authentication remains sub-second even as the database grows to millions of users.
+- **Multi-layer Graph**: Traverses clusters to find the nearest neighbor instantly.
+- **Configurable Threshold**: Currently set to `0.5` for a balance between accuracy and tolerance for variation (angle/lighting).
+
+## 🖼️ Image Storage & Retrieval Logic
+
+To satisfy the requirement for fetching user images without requiring a complex cloud bucket setup during the hackathon:
+- **Simulated Storage**: The `/ingest` endpoint generates a deterministic storage URL for every image.
+- **Database Mapping**: Every detected face is linked to these URLs in the `image_faces` table.
+- **Retrieval**: The `/images/{grab_id}` endpoint performs a relational join to return all URLs associated with a specific person's biometric identity.
 
 ## 📡 API Reference
 
